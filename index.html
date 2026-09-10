@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<meta name="apple-mobile-web-app-title" content="Belvia" />
+<meta name="theme-color" content="#1e3a5f" />
+<title>Belvia</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+:root{--navy:#1e3a5f;--khak:#f0e68c}
+*{box-sizing:border-box;border-radius:0!important;image-rendering:pixelated}
+html,body{height:100%;margin:0;background:#1e3a5f;color:#f0e68c;font-family:ui-monospace,Menlo,monospace;overflow:hidden}
+button{cursor:pointer;font:inherit;color:inherit}
+#dither{position:fixed;inset:0;z-index:0}
+#app{position:relative;z-index:1;max-width:430px;height:100dvh;margin:0 auto;display:grid;grid-template-rows:auto minmax(0,1fr) auto}
+header.top{background:#f0e68c;color:#1e3a5f;border-bottom:4px solid #1e3a5f;padding:calc(10px + env(safe-area-inset-top)) 12px 10px}
+.barrow{display:flex;align-items:center;gap:10px}
+.mark{width:26px;height:26px;background:#1e3a5f;color:#f0e68c;display:grid;place-items:center;font-weight:700}
+.brand{flex:1}.brand h1{margin:0;font-size:15px;text-transform:uppercase}.brand p{margin:2px 0 0;font-size:10px;opacity:.7}
+.iconbtn{width:36px;height:36px;border:0;background:#1e3a5f;color:#f0e68c}
+nav.pills{display:flex;gap:4px;margin-top:10px;overflow:auto}
+nav.pills button{height:28px;padding:0 10px;border:2px solid #1e3a5f;background:transparent;color:#1e3a5f;font-size:11px;font-weight:700;text-transform:uppercase}
+nav.pills button.on{background:#1e3a5f;color:#f0e68c}
+.pager{min-height:0;display:grid;grid-auto-flow:column;grid-auto-columns:100%;overflow-x:auto;scroll-snap-type:x mandatory}
+.page{overflow-y:auto;scroll-snap-align:start;padding:16px 12px}
+nav.dock{display:grid;grid-template-columns:repeat(5,1fr);background:#f0e68c;border-top:4px solid #1e3a5f;padding:6px 2px calc(8px + env(safe-area-inset-bottom))}
+nav.dock button{border:0;background:none;color:#1e3a5f;opacity:.45;font-size:9px;font-weight:700;text-transform:uppercase}
+nav.dock button.on{opacity:1;background:#1e3a5f;color:#f0e68c}
+h2{margin:0 0 8px;font-size:22px;text-transform:uppercase;color:#f0e68c}
+h3{margin:0;font-size:14px;text-transform:uppercase}
+.kicker{margin:0 0 6px;font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.muted{font-size:12px;opacity:.85}.note{color:#1e3a5f;font-size:11px}
+.stack{display:flex;flex-direction:column;gap:10px}
+.card,.ticket,.banner{background:#f0e68c;color:#1e3a5f;box-shadow:4px 4px 0 #0b1a2e}
+.pad{padding:14px}.row{display:flex;gap:12px;width:100%;padding:12px 14px;border:0;border-top:2px solid #1e3a5f;background:#f0e68c;text-align:left;text-decoration:none;color:inherit}
+.check{width:16px;height:16px;border:2px solid #1e3a5f}.on .check{background:#1e3a5f}
+.ttl{font-size:13px;font-weight:700;text-transform:uppercase}
+.btn{min-height:44px;width:100%;border:0;font-size:13px;font-weight:700;text-transform:uppercase}
+.btn-a{background:#f0e68c;color:#1e3a5f;box-shadow:4px 4px 0 #0b1a2e}
+.btn-g{background:transparent;color:#f0e68c;border:2px solid #f0e68c}
+.field{display:flex;flex-direction:column;gap:6px;padding:0 14px 12px}
+.field input,.field textarea,.field select{border:2px solid #1e3a5f;background:#e4d97a;padding:10px;font:inherit}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.ticket{padding:14px}.ticket .code{font-size:24px;font-weight:750}
+#map{height:280px;background:#1e3a5f}
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(30,58,95,.72);display:none;align-items:flex-end}
+.overlay.show{display:flex}
+.sheet{width:min(430px,100%);background:#f0e68c;color:#1e3a5f;padding:16px 16px calc(18px + env(safe-area-inset-bottom))}
+</style>
+</head>
+<body>
+<canvas id="dither"></canvas>
+<div id="app">
+<header class="top"><div class="barrow"><div class="mark">B</div><div class="brand"><h1 id="hdrTitle">Belvia</h1><p id="hdrSub">On-device itinerary</p></div>
+<button class="iconbtn" data-act="export" type="button">↑</button></div>
+<nav class="pills" id="pills"></nav></header>
+<div class="pager" id="pager">
+<section class="page" id="page-today"></section>
+<section class="page" id="page-plan"></section>
+<section class="page" id="page-map"></section>
+<section class="page" id="page-pack"></section>
+<section class="page" id="page-apps"></section>
+</div>
+<nav class="dock" id="dock"></nav>
+</div>
+<div class="overlay" id="export"><div class="sheet stack">
+<p class="kicker">Export</p><h3>Add this trip to iPhone</h3>
+<p class="muted">Files stay on this device.</p>
+<button class="btn btn-a" data-act="ics-cal" type="button">Add to Calendar</button>
+<button class="btn btn-g" data-act="ics-rem" type="button">Add to Reminders</button>
+<button class="btn btn-g" data-act="export-close" type="button">Close</button>
+</div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="./app.js"></script>
+<script src="./ui.js"></script>
+<script src="./pages.js"></script>
+<script src="./events.js"></script>
+<script>
+(function(){
+  const c=document.getElementById("dither"); if(!c) return;
+  const N=[30,58,95], K=[240,230,140];
+  const B=[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+  function paint(){
+    const cell=5,w=Math.ceil(innerWidth/cell),h=Math.ceil(innerHeight/cell);
+    c.width=w;c.height=h;c.style.width=innerWidth+"px";c.style.height=innerHeight+"px";
+    const ctx=c.getContext("2d"),img=ctx.createImageData(w,h),p=img.data;
+    for(let y=0;y<h;y++) for(let x=0;x<w;x++){
+      const i=(y*w+x)*4,n=Math.sin(x*0.17)+Math.cos(y*0.13)+((x*13+y*7)%11)/11;
+      const t=0.45+(B[y&3][x&3]/16-0.5)*0.5,col=(n*0.35+0.5)>t?K:N;
+      p[i]=col[0];p[i+1]=col[1];p[i+2]=col[2];p[i+3]=255;
+    }
+    ctx.putImageData(img,0,0);
+  }
+  paint(); addEventListener("resize",paint);
+})();
+</script>
+</body></html>
